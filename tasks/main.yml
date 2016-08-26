@@ -1,2 +1,55 @@
 ---
 # tasks file for ansible-perlbrew/
+
+- name: Install perlbrew deps from yum
+  yum:
+    name: "{{ item }}"
+    state: installed
+  with_items:
+    - bzip2
+    - perl-Test-Pod
+
+- name: Install CentOS Development tools
+  yum:
+    name: "@Development tools"
+    state: installed
+
+- name: Create perlbrew root
+  file:
+    path: "{{ perlbrew_root }}"
+    state: directory
+
+- name: Fetch perlbrew
+  get_url:
+    url: https://raw.githubusercontent.com/gugod/App-perlbrew/master/perlbrew-install
+    dest: "{{ perlbrew_root }}"
+
+- block:
+  - name: Install perlbrew
+    command: "bash {{ perlbrew_root }}/perlbrew-install"
+    args:
+      creates: "{{ perlbrew_root }}/bin/perlbrew"
+
+  - name: Install perlbrew cpanm
+    command: "{{ perlbrew_root }}/bin/perlbrew install-cpanm -j {{ ansible_processor_vcpus + 1 }}"
+    args:
+      creates: "{{ perlbrew_root }}/bin/cpanm"
+
+  - name: Install perlbrew perls
+    command: |
+      {{ perlbrew_root }}/bin/perlbrew install
+      -j {{ ansible_processor_vcpus + 1 }}
+      {{ perlbrew_notest | ternary('--notest','') }}
+      {{ item }}
+    with_items: "{{ perls }}"
+    register: perlbrew_install_result
+    failed_when: "{{ perlbrew_install_result.rc not in [0,2] }}"
+    changed_when: "{{ perlbrew_install_result|success }}"
+
+  environment:
+    PERLBREW_ROOT: "{{ perlbrew_root }}"
+
+- name: Push perlbrew.sh
+  template:
+    src: perlbrew.sh
+    dest: /etc/profile.d/perlbrew.sh

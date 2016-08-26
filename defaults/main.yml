@@ -1,2 +1,9 @@
 ---
 # defaults file for ansible-perlbrew/
+perlbrew_root: /opt/perl5
+
+default_perl: perl-5.10.1
+perls:
+  - "{{ default_perl }}"
+
+perlbrew_notest: False
